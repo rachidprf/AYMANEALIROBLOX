@@ -1,0 +1,214 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Boutique — Stock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header">
+    <div class="container header-inner">
+      <h1>Admin Boutique</h1>
+      <nav>
+        <a class="btn" href="boutique.html">Voir la boutique</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="container" style="display:grid; gap:14px;">
+    <section class="card" id="form-card">
+      <h2 style="margin:4px 0 10px;">Ajouter / Modifier un produit</h2>
+      <form id="form" class="grid" novalidate>
+        <div class="field">
+          <label>Image du produit</label>
+          <input type="file" id="image" accept="image/*">
+          <img id="image-preview" class="thumb" alt="aperçu image" style="display:none; margin-top:8px;">
+        </div>
+        <div class="field">
+          <label>Titre</label>
+          <input type="text" id="titre" placeholder="Ex: Figurine Roblox" required>
+        </div>
+        <div class="row">
+          <div class="field" style="flex:1 1 160px;">
+            <label>Prix (MAD)</label>
+            <input type="number" id="prix" min="0" inputmode="decimal" required>
+            <!-- Switch disponibilité sous Prix -->
+            <div class="switch" style="margin-top:10px;">
+              <input type="checkbox" id="stock" checked>
+              <label for="stock">En stock</label>
+            </div>
+          </div>
+          <div class="field" style="flex:1 1 160px;">
+            <label>Catégorie</label>
+            <input type="text" id="categorie" placeholder="Accessoires">
+          </div>
+        </div>
+        <div class="field">
+          <label>SKU / Référence</label>
+          <input type="text" id="sku" placeholder="RBX-001">
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="description" placeholder="Détails du produit..."></textarea>
+        </div>
+        <input type="hidden" id="product-id">
+        <div class="bottom-bar">
+          <button class="btn" type="button" id="reset">Vider</button>
+          <button class="btn danger" type="button" id="delete" disabled>Supprimer</button>
+          <button class="btn primary" type="submit" id="save">Enregistrer</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="row" style="align-items:center; justify-content:space-between;">
+        <h2 style="margin:4px 0;">Inventaire</h2>
+        <input type="text" id="q" placeholder="Recherche rapide..." style="max-width:260px;">
+      </div>
+      <hr>
+      <div id="list" class="grid"></div>
+      <div id="empty" class="empty" style="display:none;">Aucun produit.</div>
+    </section>
+  </div>
+
+  <footer>Connecté à Google Sheets • Aucune base de données serveur nécessaire.</footer>
+
+  <script src="app.js"></script>
+  <script>
+    let PRODUCTS = [];
+    const el = (id) => document.getElementById(id);
+
+    const form = el('form');
+    const list = el('list');
+    const empty = el('empty');
+    const q = el('q');
+    const btnDelete = el('delete');
+    const inputId = el('product-id');
+    const imgInput = el('image');
+    const imgPreview = el('image-preview');
+    const stock = el('stock');
+
+    // Aperçu image
+    imgInput.addEventListener('change', () => {
+      const file = imgInput.files && imgInput.files[0];
+      if (!file) { imgPreview.style.display='none'; imgPreview.src=''; return; }
+      const reader = new FileReader();
+      reader.onload = () => { imgPreview.src = reader.result; imgPreview.style.display='block'; };
+      reader.readAsDataURL(file);
+    });
+
+    function badge(dispo) {
+      if ((dispo||'').toLowerCase().startsWith('en')) return '<span class="badge ok">En stock</span>';
+      if ((dispo||'').toLowerCase().startsWith('rupt')) return '<span class="badge ko">Rupture</span>';
+      return '';
+    }
+
+    function render(products, query='') {
+      list.innerHTML = '';
+      const filtered = products.filter(p => (p.titre + ' ' + (p.description||'') + ' ' + (p.categorie||'')).toLowerCase().includes(query.toLowerCase()));
+      if (!filtered.length) { empty.style.display='block'; return; }
+      empty.style.display='none';
+      for (const p of filtered) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <img class="thumb" src="${p.image}" alt="image produit">
+          <h3 style="margin:10px 0 4px;">${p.titre}</h3>
+          <div class="price">${p.prix} MAD</div>
+          <div class="small">${p.categorie ? p.categorie : ''} ${p.sku ? ' • ' + p.sku : ''}</div>
+          <div style="margin:6px 0;">${badge(p.disponibilite)}</div>
+          <p style="margin-top:8px;">${p.description ? p.description : ''}</p>
+          <div class="controls" style="margin-top:8px;">
+            <button class="btn" data-edit="${p.id}">Modifier</button>
+            <button class="btn danger" data-del="${p.id}">Supprimer</button>
+          </div>
+        `;
+        list.appendChild(card);
+      }
+    }
+
+    async function refresh() {
+      PRODUCTS = await apiGetProducts();
+      render(PRODUCTS, q.value||'');
+    }
+
+    q.addEventListener('input', () => render(PRODUCTS, q.value||''));
+
+    list.addEventListener('click', async (e) => {
+      const editId = e.target.getAttribute('data-edit');
+      const delId = e.target.getAttribute('data-del');
+      if (editId) {
+        const p = PRODUCTS.find(x => String(x.id) === String(editId));
+        if (!p) return;
+        inputId.value = p.id;
+        el('titre').value = p.titre || '';
+        el('prix').value = p.prix || '';
+        el('categorie').value = p.categorie || '';
+        el('sku').value = p.sku || '';
+        el('description').value = p.description || '';
+        stock.checked = (String(p.disponibilite||'').toLowerCase().startsWith('en'));
+        imgInput.value = ''; imgPreview.style.display='none'; imgPreview.src='';
+        btnDelete.disabled = false;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (delId) {
+        if (!confirm('Supprimer ce produit ?')) return;
+        try {
+          await apiDeleteProduct(delId);
+          await refresh();
+          if (inputId.value === delId) { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true; }
+          alert('Produit supprimé.');
+        } catch (err) { alert('Erreur suppression.'); }
+      }
+    });
+
+    el('reset').addEventListener('click', () => { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true; });
+
+    btnDelete.addEventListener('click', async () => {
+      const id = inputId.value;
+      if (!id) return;
+      if (!confirm('Supprimer ce produit ?')) return;
+      try {
+        await apiDeleteProduct(id);
+        await refresh();
+        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true;
+        alert('Produit supprimé.');
+      } catch (e) { alert('Erreur suppression.'); }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = inputId.value || Date.now().toString();
+      const titre = el('titre').value.trim();
+      const prix = el('prix').value.trim();
+      if (!titre || !prix) return alert('Titre et prix sont obligatoires.');
+
+      let image64 = null;
+      const f = imgInput.files[0];
+      if (!inputId.value && !f) return alert('Image obligatoire pour un nouveau produit.');
+      if (f) image64 = await fileToBase64(f);
+
+      const payload = {
+        id, titre, prix,
+        description: el('description').value.trim(),
+        categorie: el('categorie').value.trim(),
+        sku: el('sku').value.trim(),
+        disponibilite: stock.checked ? 'En stock' : 'Rupture',
+      };
+      if (image64) payload.image = image64;
+
+      try {
+        await apiUpsertProduct(payload);
+        await refresh();
+        alert(inputId.value ? 'Produit mis à jour.' : 'Produit ajouté.');
+        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true;
+      } catch (err) {
+        alert('Erreur lors de l’enregistrement.');
+      }
+    });
+
+    refresh();
+  </script>
+</body>
+</html>
