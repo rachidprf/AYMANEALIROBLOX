@@ -1,6 +1,6 @@
 
 // API URL
-const API_URL = "https://script.google.com/macros/s/AKfycbztR-Hp6cKXAqO4Dgd9OcfYfCkgdvFg_zSPoMWALhx868TuUUlrD-tyExF5qICEgzDo_A/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyprl1xeUzK0sYTpgM9pGJpDbdnoVQbkbvA21LBQSdM2fKLLYL-DclxKMe-qr0UkgHwmA/exec";
 
 // Helpers
 async function fileToBase64(file) {
