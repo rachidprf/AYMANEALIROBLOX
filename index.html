@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin Boutique</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="header">
@@ -18,182 +17,150 @@
   </div>
 
   <div class="container" style="display:grid; gap:14px;">
-    <section class="card" id="form-card">
-      <h2 style="margin:4px 0 10px;">Ajouter / Modifier un produit</h2>
+    <section class="card">
+      <h2>Ajouter / Modifier un produit</h2>
       <form id="form" class="grid" novalidate>
         <div class="field">
-          <label>Image du produit</label>
+          <label>Image</label>
           <input type="file" id="image" accept="image/*">
-          <img id="image-preview" class="thumb" alt="aperçu image" style="display:none; margin-top:8px;">
+          <img id="image-preview" class="thumb" style="display:none; margin-top:8px;">
         </div>
         <div class="field">
           <label>Titre</label>
-          <input type="text" id="titre" placeholder="Ex: Figurine Roblox" required>
+          <input type="text" id="titre" required>
         </div>
         <div class="row">
-          <div class="field" style="flex:1 1 160px;">
+          <div class="field" style="flex:1 1 180px;">
             <label>Prix (MAD)</label>
-            <input type="number" id="prix" min="0" inputmode="decimal" required>
+            <input type="number" id="prix" required>
           </div>
-          <div class="field" style="flex:1 1 160px;">
+          <div class="field" style="flex:1 1 180px;">
             <label>Catégorie</label>
-            <input type="text" id="categorie" placeholder="Accessoires">
+            <input type="text" id="categorie">
           </div>
         </div>
         <div class="field">
           <label>SKU / Référence</label>
-          <input type="text" id="sku" placeholder="RBX-001">
+          <input type="text" id="sku">
         </div>
         <div class="field">
           <label>Description</label>
-          <textarea id="description" placeholder="Détails du produit..."></textarea>
+          <textarea id="description"></textarea>
         </div>
         <input type="hidden" id="product-id">
         <div class="row">
-          <button class="btn" type="button" id="reset">Vider</button>
-          <button class="btn danger" type="button" id="delete" disabled>Supprimer</button>
-          <button class="btn primary" type="submit" id="save">Enregistrer</button>
+          <button type="button" class="btn" id="reset">Vider</button>
+          <button type="button" class="btn danger" id="delete" disabled>Supprimer</button>
+          <button type="submit" class="btn primary">Enregistrer</button>
         </div>
       </form>
     </section>
 
     <section class="card">
-      <div class="row" style="align-items:center; justify-content:space-between;">
-        <h2 style="margin:4px 0;">Inventaire</h2>
-        <input type="text" id="q" placeholder="Recherche rapide..." style="max-width:260px;">
-      </div>
-      <hr>
+      <h2>Inventaire</h2>
+      <input id="q" placeholder="Recherche..." style="margin-bottom:10px;width:100%;padding:10px;">
       <div id="list" class="grid"></div>
       <div id="empty" class="empty" style="display:none;">Aucun produit.</div>
     </section>
   </div>
 
-  <footer>Connecté à Google Sheets • Aucune base de données serveur nécessaire.</footer>
+  <footer>© 2025 Aymane Ali Shop</footer>
 
   <script src="app.js"></script>
   <script>
-    let PRODUCTS = [];
     const el = (id) => document.getElementById(id);
-
     const form = el('form');
     const list = el('list');
-    const empty = el('empty');
     const q = el('q');
-    const btnDelete = el('delete');
+    const btnDel = el('delete');
     const inputId = el('product-id');
     const imgInput = el('image');
-    const imgPreview = el('image-preview');
+    const imgPrev = el('image-preview');
+    let PRODUCTS = [];
 
-    // Aperçu image
     imgInput.addEventListener('change', () => {
-      const file = imgInput.files && imgInput.files[0];
-      if (!file) { imgPreview.style.display='none'; imgPreview.src=''; return; }
-      const reader = new FileReader();
-      reader.onload = () => { imgPreview.src = reader.result; imgPreview.style.display='block'; };
-      reader.readAsDataURL(file);
+      const f = imgInput.files[0];
+      if (!f) { imgPrev.style.display='none'; return; }
+      const r = new FileReader();
+      r.onload = () => { imgPrev.src=r.result; imgPrev.style.display='block'; };
+      r.readAsDataURL(f);
     });
 
-    function render(products, query='') {
+    function render(data, qv='') {
       list.innerHTML = '';
-      const filtered = products.filter(p => (p.titre + ' ' + (p.description||'') + ' ' + (p.categorie||'')).toLowerCase().includes(query.toLowerCase()));
-      if (!filtered.length) { empty.style.display='block'; return; }
-      empty.style.display='none';
-      for (const p of filtered) {
-        const card = document.createElement('div');
-        card.className = 'card';
+      const filt = data.filter(p => (p.titre + ' ' + (p.description||'') + ' ' + (p.categorie||'')).toLowerCase().includes(qv.toLowerCase()));
+      if (!filt.length) { el('empty').style.display='block'; return; }
+      el('empty').style.display='none';
+      for (const p of filt) {
+        const card=document.createElement('div');
+        card.className='card';
         card.innerHTML = `
-          <img class="thumb" src="${p.image}" alt="image produit">
-          <h3 style="margin:10px 0 4px;">${p.titre}</h3>
-          <div class="price">${p.prix} MAD</div>
-          <div class="small">${p.categorie ? p.categorie : ''} ${p.sku ? ' • ' + p.sku : ''}</div>
-          <p style="margin-top:8px;">${p.description ? p.description : ''}</p>
-          <div class="controls" style="margin-top:8px;">
+          <img class="thumb" src="${p.image}" alt="">
+          <h3>${p.titre}</h3>
+          <p><strong>${p.prix} MAD</strong> • ${p.categorie||''}</p>
+          <p>${p.description||''}</p>
+          <div class="row">
             <button class="btn" data-edit="${p.id}">Modifier</button>
-            <button class="btn danger" data-del="${p.id}">Supprimer</button>
-          </div>
-        `;
+            <button class="btn danger" data-del="${p.id}" data-row="${p.__row}">Supprimer</button>
+          </div>`;
         list.appendChild(card);
       }
     }
 
-    async function refresh() {
+    async function refresh(){
       PRODUCTS = await apiGetProducts();
       render(PRODUCTS, q.value||'');
     }
 
-    q.addEventListener('input', () => render(PRODUCTS, q.value||''));
+    q.addEventListener('input', ()=>render(PRODUCTS,q.value||''));
 
-    list.addEventListener('click', async (e) => {
+    list.addEventListener('click', async e=>{
       const editId = e.target.getAttribute('data-edit');
       const delId = e.target.getAttribute('data-del');
-      if (editId) {
-        const p = PRODUCTS.find(x => String(x.id) === String(editId));
-        if (!p) return;
-        inputId.value = p.id;
-        el('titre').value = p.titre || '';
-        el('prix').value = p.prix || '';
-        el('categorie').value = p.categorie || '';
-        el('sku').value = p.sku || '';
-        el('description').value = p.description || '';
-        imgInput.value = ''; imgPreview.style.display='none'; imgPreview.src='';
-        btnDelete.disabled = false;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else if (delId) {
-        if (!confirm('Supprimer ce produit ?')) return;
-        try {
-          await apiDeleteProduct(delId);
+      const delRow = e.target.getAttribute('data-row');
+      if (editId){
+        const p = PRODUCTS.find(x=>String(x.id)===String(editId));
+        if(!p) return;
+        inputId.value=p.id;
+        el('titre').value=p.titre||'';
+        el('prix').value=p.prix||'';
+        el('categorie').value=p.categorie||'';
+        el('sku').value=p.sku||'';
+        el('description').value=p.description||'';
+        btnDel.disabled=false;
+        window.scrollTo({top:0,behavior:'smooth'});
+      }else if (delId || delRow){
+        if(!confirm('Supprimer ce produit ?')) return;
+        try{
+          await apiDeleteProduct(delId, delRow);
           await refresh();
-          if (inputId.value === delId) { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; }
+          form.reset(); inputId.value=''; btnDel.disabled=true;
           alert('Produit supprimé.');
-        } catch (err) { alert('Erreur suppression.'); }
+        }catch{ alert('Erreur suppression.'); }
       }
     });
 
-    el('reset').addEventListener('click', () => { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; });
+    el('reset').addEventListener('click', ()=>{ form.reset(); inputId.value=''; btnDel.disabled=true; });
 
-    btnDelete.addEventListener('click', async () => {
-      const id = inputId.value;
-      if (!id) return;
-      if (!confirm('Supprimer ce produit ?')) return;
-      try {
-        await apiDeleteProduct(id);
-        await refresh();
-        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src='';
-        alert('Produit supprimé.');
-      } catch (e) { alert('Erreur suppression.'); }
-    });
-
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async e=>{
       e.preventDefault();
       const id = inputId.value || Date.now().toString();
       const titre = el('titre').value.trim();
       const prix = el('prix').value.trim();
-      if (!titre || !prix) return alert('Titre et prix sont obligatoires.');
-
-      let image64 = null;
+      if(!titre||!prix) return alert('Titre et prix obligatoires');
       const f = imgInput.files[0];
-      if (!inputId.value && !f) return alert('Image obligatoire pour un nouveau produit.');
-      if (f) image64 = await fileToBase64(f);
-
-      const payload = {
-        id, titre, prix,
-        description: el('description').value.trim(),
-        categorie: el('categorie').value.trim(),
-        sku: el('sku').value.trim(),
-      };
-      if (image64) payload.image = image64;
-
-      try {
-        await apiUpsertProduct(payload);
-        await refresh();
-        alert(inputId.value ? 'Produit mis à jour.' : 'Produit ajouté.');
-        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src='';
-      } catch (err) {
-        alert('Erreur lors de l’enregistrement.');
-      }
+      let image64=null;
+      if(f) image64=await fileToBase64(f);
+      const payload={ id,titre,prix,categorie:el('categorie').value,sku:el('sku').value,description:el('description').value };
+      if(image64) payload.image=image64;
+      await apiUpsertProduct(payload);
+      await refresh();
+      form.reset(); inputId.value=''; btnDel.disabled=true; imgPrev.style.display='none';
+      alert('Produit enregistré.');
     });
 
     refresh();
   </script>
 </body>
 </html>
+
