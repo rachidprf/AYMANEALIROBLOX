@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Boutique — Stock</title>
+  <title>Boutique — Commande & Pagination</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -31,10 +31,43 @@
       <hr>
       <div id="grid" class="grid"></div>
       <div id="empty" class="empty" style="display:none;">Aucun produit trouvé.</div>
+
+      <!-- Pagination bottom only -->
+      <div id="pagination" class="pagination"></div>
     </section>
   </div>
 
-  <footer>Connecté à Google Sheets • Démo sans paiement.</footer>
+  <footer>Connecté à Google Sheets • Commande envoyée dans Feuille2.</footer>
+
+  <!-- Modal: Commander -->
+  <div id="modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <header>
+        <h3>Commander</h3>
+        <button id="modal-close" class="btn">Fermer</button>
+      </header>
+      <div class="body">
+        <div id="order-product" class="small"></div>
+        <div class="field">
+          <label>Nom complet</label>
+          <input type="text" id="order-nom" required>
+        </div>
+        <div class="field">
+          <label>Téléphone</label>
+          <input type="text" id="order-tel" required>
+        </div>
+        <div class="field">
+          <label>Ville</label>
+          <input type="text" id="order-ville" required>
+        </div>
+      </div>
+      <div class="footer">
+        <button id="order-send" class="btn primary">Envoyer la commande</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">✅ Commande envoyée avec succès !</div>
 
   <script src="app.js"></script>
   <script>
@@ -42,19 +75,70 @@
     const empty = document.getElementById('empty');
     const q = document.getElementById('q');
     const sortSel = document.getElementById('sort');
-    let PRODUCTS = [];
+    const pag = document.getElementById('pagination');
 
-    function badge(dispo) {
-      if ((dispo||'').toLowerCase().startsWith('en')) return '<span class="badge ok">En stock</span>';
-      if ((dispo||'').toLowerCase().startsWith('rupt')) return '<span class="badge ko">Rupture</span>';
-      return '';
+    const modal = document.getElementById('modal');
+    const btnClose = document.getElementById('modal-close');
+    const btnSend = document.getElementById('order-send');
+    const toast = document.getElementById('toast');
+
+    const orderNom = document.getElementById('order-nom');
+    const orderTel = document.getElementById('order-tel');
+    const orderVille = document.getElementById('order-ville');
+    const orderProduct = document.getElementById('order-product');
+
+    let PRODUCTS = [];
+    let FILTERED = [];
+    let currentPage = 1;
+    const perPage = 10;
+    let selectedProduct = null;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(()=> toast.style.display='none', 2200);
     }
+
+    function openModal(prod) {
+      selectedProduct = prod;
+      orderProduct.innerHTML = `<strong>Produit :</strong> ${prod.titre} — <strong>${prod.prix} MAD</strong>`;
+      modal.style.display = 'flex';
+    }
+    function closeModal() {
+      modal.style.display = 'none';
+      selectedProduct = null;
+      orderNom.value = '';
+      orderTel.value = '';
+      orderVille.value = '';
+    }
+    btnClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+    async function sendOrder() {
+      if (!selectedProduct) return;
+      const nom = orderNom.value.trim();
+      const tel = orderTel.value.trim();
+      const ville = orderVille.value.trim();
+      if (!nom || !tel || !ville) { showToast('Merci de remplir tous les champs.'); return; }
+      try {
+        await apiPostOrder({ produit: selectedProduct.titre, prix: selectedProduct.prix, nom, téléphone: tel, ville });
+        closeModal();
+        showToast('✅ Commande envoyée avec succès !');
+      } catch (e) {
+        showToast('❌ Erreur lors de l’envoi.');
+      }
+    }
+    btnSend.addEventListener('click', sendOrder);
 
     function render(list) {
       grid.innerHTML = '';
-      if (!list.length) { empty.style.display='block'; return; }
+      if (!list.length) { empty.style.display='block'; pag.innerHTML=''; return; }
       empty.style.display='none';
-      list.forEach(p => {
+
+      const start = (currentPage - 1) * perPage;
+      const end = start + perPage;
+      const pageItems = list.slice(start, end);
+      pageItems.forEach(p => {
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
@@ -62,26 +146,66 @@
           <h3 style="margin:10px 0 4px;">${p.titre}</h3>
           <div class="price">${p.prix} MAD</div>
           <div class="small">${p.categorie ? p.categorie : ''} ${p.sku ? ' • ' + p.sku : ''}</div>
-          <div style="margin:6px 0;">${badge(p.disponibilite)}</div>
           <p style="margin-top:8px;">${p.description ? p.description : ''}</p>
           <div class="controls">
-            <button class="btn primary" onclick="alert('Démo : pas de paiement activé')">Acheter</button>
+            <button class="btn primary" data-cmd="${p.id}">Commander</button>
           </div>
         `;
         grid.appendChild(card);
       });
+
+      renderPagination(list.length);
     }
+
+    function renderPagination(total) {
+      const totalPages = Math.max(1, Math.ceil(total / perPage));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      let html = '';
+      const prevDisabled = currentPage <= 1 ? 'disabled' : '';
+      const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
+
+      html += `<button class="page-btn" ${prevDisabled} data-page="prev">← Précédent</button>`;
+      html += `<span class="page-info">Page ${currentPage} sur ${totalPages}</span>`;
+
+      for (let i=1; i<= totalPages; i++) {
+        const cls = 'page-btn' + (i === currentPage ? ' active' : '');
+        html += `<button class="${cls}" data-page="${i}">${i}</button>`;
+      }
+      html += `<button class="page-btn" ${nextDisabled} data-page="next">Suivant →</button>`;
+
+      pag.innerHTML = html;
+    }
+
+    pag.addEventListener('click', (e) => {
+      const val = e.target.getAttribute('data-page');
+      if (!val) return;
+      const totalPages = Math.max(1, Math.ceil(FILTERED.length / perPage));
+      if (val === 'prev' && currentPage > 1) currentPage--;
+      else if (val === 'next' && currentPage < totalPages) currentPage++;
+      else if (!isNaN(parseInt(val))) currentPage = parseInt(val);
+      render(FILTERED);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.addEventListener('click', (e) => {
+      const id = e.target.getAttribute('data-cmd');
+      if (!id) return;
+      const prod = PRODUCTS.find(p => String(p.id) === String(id));
+      if (prod) openModal(prod);
+    });
 
     function applyFilters() {
       const qv = q.value.toLowerCase();
-      let list = PRODUCTS.filter(p => (p.titre + ' ' + (p.description||'') + ' ' + (p.categorie||'')).toLowerCase().includes(qv));
+      FILTERED = PRODUCTS.filter(p => (p.titre + ' ' + (p.description||'') + ' ' + (p.categorie||'')).toLowerCase().includes(qv));
       switch (sortSel.value) {
-        case 'price-asc': list.sort((a,b)=> Number(a.prix) - Number(b.prix)); break;
-        case 'price-desc': list.sort((a,b)=> Number(b.prix) - Number(a.prix)); break;
-        case 'title': list.sort((a,b)=> (a.titre||'').localeCompare(b.titre||'')); break;
-        default: list.sort((a,b)=> (new Date(b.date || 0)) - (new Date(a.date || 0)));
+        case 'price-asc': FILTERED.sort((a,b)=> Number(a.prix) - Number(b.prix)); break;
+        case 'price-desc': FILTERED.sort((a,b)=> Number(b.prix) - Number(a.prix)); break;
+        case 'title': FILTERED.sort((a,b)=> (a.titre||'').localeCompare(b.titre||'')); break;
+        default: FILTERED.sort((a,b)=> (new Date(b.date || 0)) - (new Date(a.date || 0)));
       }
-      render(list);
+      currentPage = 1;
+      render(FILTERED);
     }
 
     async function load() {

@@ -21,6 +21,7 @@ async function apiGetProducts() {
 
 async function apiUpsertProduct(record) {
   const form = new FormData();
+  form.append('route', 'product');
   Object.entries(record).forEach(([k,v]) => form.append(k, v ?? ''));
   const res = await fetch(API_URL, { method: 'POST', body: form });
   if (!res.ok) throw new Error('POST échoué');
@@ -30,5 +31,14 @@ async function apiUpsertProduct(record) {
 async function apiDeleteProduct(id) {
   const res = await fetch(`${API_URL}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('DELETE échoué');
+  return res.json().catch(() => ({success:true}));
+}
+
+async function apiPostOrder(order) {
+  const form = new FormData();
+  form.append('route', 'commande');
+  Object.entries(order).forEach(([k,v]) => form.append(k, v ?? ''));
+  const res = await fetch(API_URL, { method: 'POST', body: form });
+  if (!res.ok) throw new Error('POST commande échoué');
   return res.json().catch(() => ({success:true}));
 }

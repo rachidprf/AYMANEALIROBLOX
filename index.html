@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin Boutique — Stock</title>
+  <title>Admin Boutique</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -34,11 +34,6 @@
           <div class="field" style="flex:1 1 160px;">
             <label>Prix (MAD)</label>
             <input type="number" id="prix" min="0" inputmode="decimal" required>
-            <!-- Switch disponibilité sous Prix -->
-            <div class="switch" style="margin-top:10px;">
-              <input type="checkbox" id="stock" checked>
-              <label for="stock">En stock</label>
-            </div>
           </div>
           <div class="field" style="flex:1 1 160px;">
             <label>Catégorie</label>
@@ -54,7 +49,7 @@
           <textarea id="description" placeholder="Détails du produit..."></textarea>
         </div>
         <input type="hidden" id="product-id">
-        <div class="bottom-bar">
+        <div class="row">
           <button class="btn" type="button" id="reset">Vider</button>
           <button class="btn danger" type="button" id="delete" disabled>Supprimer</button>
           <button class="btn primary" type="submit" id="save">Enregistrer</button>
@@ -88,7 +83,6 @@
     const inputId = el('product-id');
     const imgInput = el('image');
     const imgPreview = el('image-preview');
-    const stock = el('stock');
 
     // Aperçu image
     imgInput.addEventListener('change', () => {
@@ -98,12 +92,6 @@
       reader.onload = () => { imgPreview.src = reader.result; imgPreview.style.display='block'; };
       reader.readAsDataURL(file);
     });
-
-    function badge(dispo) {
-      if ((dispo||'').toLowerCase().startsWith('en')) return '<span class="badge ok">En stock</span>';
-      if ((dispo||'').toLowerCase().startsWith('rupt')) return '<span class="badge ko">Rupture</span>';
-      return '';
-    }
 
     function render(products, query='') {
       list.innerHTML = '';
@@ -118,7 +106,6 @@
           <h3 style="margin:10px 0 4px;">${p.titre}</h3>
           <div class="price">${p.prix} MAD</div>
           <div class="small">${p.categorie ? p.categorie : ''} ${p.sku ? ' • ' + p.sku : ''}</div>
-          <div style="margin:6px 0;">${badge(p.disponibilite)}</div>
           <p style="margin-top:8px;">${p.description ? p.description : ''}</p>
           <div class="controls" style="margin-top:8px;">
             <button class="btn" data-edit="${p.id}">Modifier</button>
@@ -148,7 +135,6 @@
         el('categorie').value = p.categorie || '';
         el('sku').value = p.sku || '';
         el('description').value = p.description || '';
-        stock.checked = (String(p.disponibilite||'').toLowerCase().startsWith('en'));
         imgInput.value = ''; imgPreview.style.display='none'; imgPreview.src='';
         btnDelete.disabled = false;
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -157,13 +143,13 @@
         try {
           await apiDeleteProduct(delId);
           await refresh();
-          if (inputId.value === delId) { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true; }
+          if (inputId.value === delId) { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; }
           alert('Produit supprimé.');
         } catch (err) { alert('Erreur suppression.'); }
       }
     });
 
-    el('reset').addEventListener('click', () => { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true; });
+    el('reset').addEventListener('click', () => { form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; });
 
     btnDelete.addEventListener('click', async () => {
       const id = inputId.value;
@@ -172,7 +158,7 @@
       try {
         await apiDeleteProduct(id);
         await refresh();
-        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true;
+        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src='';
         alert('Produit supprimé.');
       } catch (e) { alert('Erreur suppression.'); }
     });
@@ -194,7 +180,6 @@
         description: el('description').value.trim(),
         categorie: el('categorie').value.trim(),
         sku: el('sku').value.trim(),
-        disponibilite: stock.checked ? 'En stock' : 'Rupture',
       };
       if (image64) payload.image = image64;
 
@@ -202,7 +187,7 @@
         await apiUpsertProduct(payload);
         await refresh();
         alert(inputId.value ? 'Produit mis à jour.' : 'Produit ajouté.');
-        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src=''; stock.checked = true;
+        form.reset(); inputId.value=''; btnDelete.disabled=true; imgPreview.style.display='none'; imgPreview.src='';
       } catch (err) {
         alert('Erreur lors de l’enregistrement.');
       }
