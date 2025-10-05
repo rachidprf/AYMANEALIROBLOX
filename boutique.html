@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Boutique — Stock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header">
+    <div class="container header-inner">
+      <h1>Ma Boutique</h1>
+      <nav>
+        <a class="btn" href="admin.html">Admin</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="container" style="display:grid; gap:14px;">
+    <section class="card">
+      <div class="row" style="align-items:center; justify-content:space-between;">
+        <input type="text" id="q" placeholder="Rechercher un produit..." style="flex:1 1 auto; max-width:360px;">
+        <select id="sort" style="min-width:160px;">
+          <option value="new">Plus récents</option>
+          <option value="price-asc">Prix ↑</option>
+          <option value="price-desc">Prix ↓</option>
+          <option value="title">Titre (A→Z)</option>
+        </select>
+      </div>
+      <hr>
+      <div id="grid" class="grid"></div>
+      <div id="empty" class="empty" style="display:none;">Aucun produit trouvé.</div>
+    </section>
+  </div>
+
+  <footer>Connecté à Google Sheets • Démo sans paiement.</footer>
+
+  <script src="app.js"></script>
+  <script>
+    const grid = document.getElementById('grid');
+    const empty = document.getElementById('empty');
+    const q = document.getElementById('q');
+    const sortSel = document.getElementById('sort');
+    let PRODUCTS = [];
+
+    function badge(dispo) {
+      if ((dispo||'').toLowerCase().startsWith('en')) return '<span class="badge ok">En stock</span>';
+      if ((dispo||'').toLowerCase().startsWith('rupt')) return '<span class="badge ko">Rupture</span>';
+      return '';
+    }
+
+    function render(list) {
+      grid.innerHTML = '';
+      if (!list.length) { empty.style.display='block'; return; }
+      empty.style.display='none';
+      list.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <img class="thumb" src="${p.image}" alt="image produit">
+          <h3 style="margin:10px 0 4px;">${p.titre}</h3>
+          <div class="price">${p.prix} MAD</div>
+          <div class="small">${p.categorie ? p.categorie : ''} ${p.sku ? ' • ' + p.sku : ''}</div>
+          <div style="margin:6px 0;">${badge(p.disponibilite)}</div>
+          <p style="margin-top:8px;">${p.description ? p.description : ''}</p>
+          <div class="controls">
+            <button class="btn primary" onclick="alert('Démo : pas de paiement activé')">Acheter</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function applyFilters() {
+      const qv = q.value.toLowerCase();
+      let list = PRODUCTS.filter(p => (p.titre + ' ' + (p.description||'') + ' ' + (p.categorie||'')).toLowerCase().includes(qv));
+      switch (sortSel.value) {
+        case 'price-asc': list.sort((a,b)=> Number(a.prix) - Number(b.prix)); break;
+        case 'price-desc': list.sort((a,b)=> Number(b.prix) - Number(a.prix)); break;
+        case 'title': list.sort((a,b)=> (a.titre||'').localeCompare(b.titre||'')); break;
+        default: list.sort((a,b)=> (new Date(b.date || 0)) - (new Date(a.date || 0)));
+      }
+      render(list);
+    }
+
+    async function load() {
+      PRODUCTS = await apiGetProducts();
+      applyFilters();
+    }
+
+    q.addEventListener('input', applyFilters);
+    sortSel.addEventListener('change', applyFilters);
+    load();
+  </script>
+</body>
+</html>
